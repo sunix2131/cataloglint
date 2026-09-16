@@ -1,0 +1,40 @@
+name: CI
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.12', '3.14']
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install -c requirements-dev.lock -e ".[dev]"
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: pytest --cov=cataloglint --cov-report=term-missing --cov-fail-under=85
+      - run: python -m build
+      - name: Test installed wheel outside checkout
+        shell: bash
+        run: |
+          checkout_dir="$PWD"
+          python -m venv "$RUNNER_TEMP/wheelcheck"
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            wheel_python="$RUNNER_TEMP/wheelcheck/Scripts/python.exe"
+          else
+            wheel_python="$RUNNER_TEMP/wheelcheck/bin/python"
+          fi
+          "$wheel_python" -m pip install dist/*.whl
+          cd "$RUNNER_TEMP"
+          "$wheel_python" -m cataloglint --help
+          "$wheel_python" "$checkout_dir/scripts/check_wheel.py"

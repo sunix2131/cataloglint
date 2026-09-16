@@ -1,0 +1,3 @@
+include requirements-dev.lock
+recursive-include examples *.xml
+recursive-include scripts *.py
